@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9HX Series Heater Pricing Wizard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        select, input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        .checkbox-group { display: flex; align-items: center; margin-top: 10px; margin-bottom: 20px; }
+        .checkbox-group input { width: auto; margin-right: 10px; width: 20px; height: 20px; }
+        .results { margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 8px; border-left: 5px solid #3498db; }
+        .results div { margin-bottom: 10px; font-size: 18px; display: flex; align-items: center; }
+        .results span { font-weight: bold; color: #2980b9; }
+        
+        #copy-btn { margin-left: 15px; padding: 4px 12px; font-size: 14px; cursor: pointer; border: 1px solid #bdc3c7; background-color: #fff; color: #2c3e50; border-radius: 4px; transition: all 0.2s; }
+        #copy-btn:hover { background-color: #ecf0f1; }
+        #copy-btn.copied { background-color: #2ecc71; color: white; border-color: #27ae60; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>9HX Series Pricing Wizard</h1>
+
+    <div class="form-group">
+        <label for="wattage">Wattage (W)</label>
+        <select id="wattage" onchange="updateVoltages()">
+            <option value="3000">3000</option>
+            <option value="4500">4500</option>
+            <option value="6000">6000</option>
+            <option value="9000">9000</option>
+            <option value="12000">12000</option>
+            <option value="15000">15000</option>
+            <option value="18000">18000</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="voltage">Voltage (V)</label>
+        <select id="voltage" onchange="updateForm()"></select>
+    </div>
+
+    <div class="form-group">
+        <label for="fuse">Fuse</label>
+        <select id="fuse" onchange="calculate()">
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
+            <option value="P5">P5</option>
+            <option value="P6">P6</option>
+            <option value="P7">P7</option>
+            <option value="P8">P8 (+$48)</option>
+        </select>
+    </div>
+
+    <div class="checkbox-group">
+        <input type="checkbox" id="guard" onchange="calculate()">
+        <label for="guard" style="margin-bottom: 0;">Include Guard?</label>
+    </div>
+
+    <div class="form-group" id="overall-length-group">
+        <label for="length">Overall Length (inches)</label>
+        <input type="number" id="length" min="1" oninput="calculate()">
+        <small style="color:#7f8c8d;">Standard length auto-filled. Increase to update part number.</small>
+    </div>
+
+    <div class="form-group">
+        <label for="conduit">Conduit Length (inches)</label>
+        <input type="number" id="conduit" value="36" min="1" oninput="calculate()">
+        <small style="color:#7f8c8d;">Standard 36". Extra lengths add $10/ft.</small>
+    </div>
+
+    <div class="results">
+        <div>
+            Part Number: <span id="out-part" style="margin-left: 5px;"></span>
+            <button id="copy-btn" onclick="copyPart()">Copy</button>
+        </div>
+        <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
+        <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+    </div>
+</div>
+
+<script>
+    // 9HX Series Database
+    const heaters = [
+        { watts: 3000, volts: 240, part: "9HX3217-**", price: 1710, length: 17, guard: 228 },
+        { watts: 3000, volts: 480, part: "9HX3417-**", price: 1710, length: 17, guard: 228 },
+        { watts: 4500, volts: 240, part: "9HX4.5223-**", price: 1893, length: 23, guard: 258 },
+        { watts: 4500, volts: 480, part: "9HX4.5423-**", price: 1893, length: 23, guard: 258 },
+        { watts: 6000, volts: 240, part: "9HX6229-**", price: 2147, length: 29, guard: 273 },
+        { watts: 6000, volts: 480, part: "9HX6429-**", price: 2147, length: 29, guard: 273 },
+        { watts: 9000, volts: 240, part: "9HX9235-**", price: 2604, length: 35, guard: 311 },
+        { watts: 9000, volts: 480, part: "9HX9435-**", price: 2604, length: 35, guard: 311 },
+        { watts: 12000, volts: 240, part: "9HX12247-**", price: 3043, length: 47, guard: 358 },
+        { watts: 12000, volts: 480, part: "9HX12447-**", price: 3043, length: 47, guard: 358 },
+        { watts: 15000, volts: 240, part: "9HX15259-**", price: 3712, length: 59, guard: 467 },
+        { watts: 15000, volts: 480, part: "9HX15459-**", price: 3712, length: 59, guard: 467 },
+        { watts: 18000, volts: 240, part: "9HX18268-**", price: 3992, length: 68, guard: 547 },
+        { watts: 18000, volts: 480, part: "9HX18468-**", price: 3992, length: 68, guard: 547 },
+    ];
+
+    function updateVoltages() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = document.getElementById('voltage');
+        vSelect.innerHTML = ''; 
+
+        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        
+        [120, 240, 480].forEach(v => {
+            if (availableVoltages.includes(v)) {
+                let opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v + "V";
+                vSelect.appendChild(opt);
+            }
+        });
+
+        updateForm();
+    }
+
+    function updateForm() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = parseInt(document.getElementById('voltage').value);
+        
+        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        if (!heater) return;
+
+        document.getElementById('length').value = heater.length;
+        document.getElementById('length').min = heater.length; 
+
+        calculate();
+    }
+
+    function calculate() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = parseInt(document.getElementById('voltage').value);
+        const fuse = document.getElementById('fuse').value;
+        const includeGuard = document.getElementById('guard').checked;
+        const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
+        
+        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        if (!heater) return;
+
+        let finalPrice = heater.price;
+        let guardPrice = heater.guard;
+        let generatedPart = heater.part;
+
+        const customLength = parseInt(document.getElementById('length').value) || heater.length;
+
+        // Process Overall Length Surcharges ($1/inch for guard extensions)
+        if (customLength > heater.length) {
+            const extraInches = customLength - heater.length;
+            guardPrice += extraInches * 1; 
+
+            generatedPart = generatedPart.replace(heater.length + '-**', customLength + '-**');
+        }
+
+        // Process Fuse Surcharge
+        generatedPart = generatedPart.replace('**', fuse);
+        if (fuse === 'P8') {
+            finalPrice += 48;
+        }
+
+        // Guard Selection
+        if (includeGuard) {
+            finalPrice += guardPrice;
+        }
+
+        // Conduit Length Selection
+        if (conduitLength > 36) {
+            generatedPart += "-X" + conduitLength;
+            const extraFeet = (conduitLength - 36) / 12;
+            finalPrice += (extraFeet * 10); 
+        }
+
+        const distributorPrice = finalPrice * 0.65;
+
+        // Output Values
+        document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-price').innerText = finalPrice.toFixed(2);
+        document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        
+        // Reset Copy Button Styling
+        const copyBtn = document.getElementById('copy-btn');
+        copyBtn.innerText = 'Copy';
+        copyBtn.classList.remove('copied');
+    }
+
+    function copyPart() {
+        const partText = document.getElementById('out-part').innerText;
+        navigator.clipboard.writeText(partText).then(() => {
+            const btn = document.getElementById('copy-btn');
+            btn.innerText = 'Copied!';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+                btn.innerText = 'Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    }
+
+    window.onload = updateVoltages;
+</script>
+
+</body>
+</html>

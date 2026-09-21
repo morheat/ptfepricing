@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HXOL Series Heater Pricing Wizard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        select, input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        .checkbox-group { display: flex; align-items: center; margin-top: 10px; margin-bottom: 20px; }
+        .checkbox-group input { width: auto; margin-right: 10px; width: 20px; height: 20px; }
+        .results { margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 8px; border-left: 5px solid #3498db; }
+        .results div { margin-bottom: 10px; font-size: 18px; display: flex; align-items: center; }
+        .results span { font-weight: bold; color: #2980b9; }
+        
+        #copy-btn { margin-left: 15px; padding: 4px 12px; font-size: 14px; cursor: pointer; border: 1px solid #bdc3c7; background-color: #fff; color: #2c3e50; border-radius: 4px; transition: all 0.2s; }
+        #copy-btn:hover { background-color: #ecf0f1; }
+        #copy-btn.copied { background-color: #2ecc71; color: white; border-color: #27ae60; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HXOL Series Pricing Wizard</h1>
+
+    <div class="form-group">
+        <label for="wattage">Wattage (W)</label>
+        <select id="wattage" onchange="updateVoltages()">
+            <option value="1000">1000</option>
+            <option value="2000">2000</option>
+            <option value="3000">3000</option>
+            <option value="4000">4000</option>
+            <option value="5000">5000</option>
+            <option value="6000">6000</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="voltage">Voltage (V)</label>
+        <select id="voltage" onchange="updateSizes()"></select>
+    </div>
+
+    <div class="form-group">
+        <label for="size">Configuration (Width x Length)</label>
+        <select id="size" onchange="calculate()"></select>
+    </div>
+
+    <div class="form-group">
+        <label for="fuse">Fuse</label>
+        <select id="fuse" onchange="calculate()">
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
+            <option value="P5">P5</option>
+            <option value="P6">P6</option>
+            <option value="P7">P7</option>
+            <option value="P8">P8 (+$48)</option>
+        </select>
+    </div>
+
+    <div class="checkbox-group">
+        <input type="checkbox" id="guard" onchange="calculate()">
+        <label for="guard" style="margin-bottom: 0;">Include Guard?</label>
+    </div>
+
+    <div class="form-group">
+        <label for="conduit">Flexible lead length</label>
+        <input type="number" id="conduit" value="48" min="1" oninput="calculate()">
+     
+    </div>
+
+    <div class="results">
+        <div>
+            Part Number: <span id="out-part" style="margin-left: 5px;"></span>
+            <button id="copy-btn" onclick="copyPart()">Copy</button>
+        </div>
+        <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
+        <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+    </div>
+</div>
+
+<script>
+    // HXOL Series Database
+    const heaters = [
+        { watts: 1000, volts: 120, label: 'Width 2", Length 11"', part: "HXOL1102-11L-**", price: 1267, guard: 130 },
+        { watts: 1000, volts: 240, label: 'Width 2", Length 11"', part: "HXOL1202-11L-**", price: 1267, guard: 130 },
+        { watts: 1000, volts: 120, label: 'Width 4", Length 8"', part: "HXOL1104-08L-**", price: 1267, guard: 130 },
+        { watts: 1000, volts: 240, label: 'Width 4", Length 8"', part: "HXOL1204-08L-**", price: 1267, guard: 130 },
+
+        { watts: 2000, volts: 120, label: 'Width 4", Length 13"', part: "HXOL2104-13L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 240, label: 'Width 4", Length 13"', part: "HXOL2204-13L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 480, label: 'Width 4", Length 13"', part: "HXOL2404-13L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 120, label: 'Width 5", Length 10"', part: "HXOL2105-10L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 240, label: 'Width 5", Length 10"', part: "HXOL2205-10L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 480, label: 'Width 5", Length 10"', part: "HXOL2405-10L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 120, label: 'Width 6", Length 8"', part: "HXOL2106-08L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 240, label: 'Width 6", Length 8"', part: "HXOL2206-08L-**", price: 1720, guard: 141 },
+        { watts: 2000, volts: 480, label: 'Width 6", Length 8"', part: "HXOL2406-08L-**", price: 1720, guard: 141 },
+
+        { watts: 3000, volts: 240, label: 'Width 4", Length 18"', part: "HXOL3204-18L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 480, label: 'Width 4", Length 18"', part: "HXOL3404-18L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 240, label: 'Width 5", Length 12"', part: "HXOL3205-12L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 480, label: 'Width 5", Length 12"', part: "HXOL3405-12L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 240, label: 'Width 6", Length 11"', part: "HXOL3206-11L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 480, label: 'Width 6", Length 11"', part: "HXOL3406-11L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 240, label: 'Width 8", Length 8"', part: "HXOL3208-08L-**", price: 2209, guard: 152 },
+        { watts: 3000, volts: 480, label: 'Width 8", Length 8"', part: "HXOL3408-08L-**", price: 2209, guard: 152 },
+
+        { watts: 4000, volts: 240, label: 'Width 5", Length 18"', part: "HXOL4205-18L-**", price: 2317, guard: 162 },
+        { watts: 4000, volts: 480, label: 'Width 5", Length 18"', part: "HXOL4405-18L-**", price: 2317, guard: 162 },
+        { watts: 4000, volts: 240, label: 'Width 6", Length 14"', part: "HXOL4206-14L-**", price: 2317, guard: 162 },
+        { watts: 4000, volts: 480, label: 'Width 6", Length 14"', part: "HXOL4406-14L-**", price: 2317, guard: 162 },
+        { watts: 4000, volts: 240, label: 'Width 8", Length 11"', part: "HXOL4208-11L-**", price: 2317, guard: 162 },
+        { watts: 4000, volts: 480, label: 'Width 8", Length 11"', part: "HXOL4408-11L-**", price: 2317, guard: 162 },
+
+        { watts: 5000, volts: 240, label: 'Width 6", Length 18"', part: "HXOL5206-18L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 480, label: 'Width 6", Length 18"', part: "HXOL5406-18L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 240, label: 'Width 8", Length 13"', part: "HXOL5208-13L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 480, label: 'Width 8", Length 13"', part: "HXOL5408-13L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 240, label: 'Width 9", Length 11"', part: "HXOL5209-11L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 480, label: 'Width 9", Length 11"', part: "HXOL5409-11L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 240, label: 'Width 10", Length 10"', part: "HXOL5210-10L-**", price: 2630, guard: 175 },
+        { watts: 5000, volts: 480, label: 'Width 10", Length 10"', part: "HXOL5410-10L-**", price: 2630, guard: 175 },
+
+        { watts: 6000, volts: 240, label: 'Width 7", Length 18"', part: "HXOL6207-18L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 480, label: 'Width 7", Length 18"', part: "HXOL6407-18L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 240, label: 'Width 8", Length 15"', part: "HXOL6208-15L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 480, label: 'Width 8", Length 15"', part: "HXOL6408-15L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 240, label: 'Width 9", Length 13"', part: "HXOL6209-13L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 480, label: 'Width 9", Length 13"', part: "HXOL6409-13L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 240, label: 'Width 10", Length 12"', part: "HXOL6210-12L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 480, label: 'Width 10", Length 12"', part: "HXOL6410-12L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 240, label: 'Width 11", Length 11"', part: "HXOL6211-11L-**", price: 2914, guard: 175 },
+        { watts: 6000, volts: 480, label: 'Width 11", Length 11"', part: "HXOL6411-11L-**", price: 2914, guard: 175 },
+    ];
+
+    function updateVoltages() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = document.getElementById('voltage');
+        vSelect.innerHTML = ''; 
+
+        // Extract unique voltages available for the chosen wattage
+        const availableVoltages = [...new Set(heaters.filter(h => h.watts === wSelect).map(h => h.volts))];
+        
+        [120, 240, 480].forEach(v => {
+            if (availableVoltages.includes(v)) {
+                let opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v + "V";
+                vSelect.appendChild(opt);
+            }
+        });
+
+        updateSizes();
+    }
+
+    function updateSizes() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = parseInt(document.getElementById('voltage').value);
+        const sSelect = document.getElementById('size');
+        sSelect.innerHTML = '';
+
+        // Extract available Width x Length combinations for the chosen Wattage & Voltage
+        const availableHeaters = heaters.filter(h => h.watts === wSelect && h.volts === vSelect);
+        
+        availableHeaters.forEach(h => {
+            let opt = document.createElement('option');
+            opt.value = h.part;
+            opt.textContent = h.label;
+            sSelect.appendChild(opt);
+        });
+
+        calculate();
+    }
+
+    function calculate() {
+        const selectedPartStr = document.getElementById('size').value;
+        const fuse = document.getElementById('fuse').value;
+        const includeGuard = document.getElementById('guard').checked;
+        const flexLength = parseInt(document.getElementById('conduit').value) || 48;
+        
+        const heater = heaters.find(h => h.part === selectedPartStr);
+        if (!heater) return;
+
+        let finalPrice = heater.price;
+        let generatedPart = heater.part;
+
+        // Process Fuse Surcharge
+        generatedPart = generatedPart.replace('**', fuse);
+        if (fuse === 'P8') {
+            finalPrice += 48;
+        }
+
+        // Guard Selection
+        if (includeGuard) {
+            finalPrice += heater.guard;
+        }
+
+        // Flex Lead Selection ($7 per inch over 48 inches)
+        if (flexLength > 48) {
+            generatedPart += "-X" + flexLength;
+            const extraInches = flexLength - 48;
+            finalPrice += (extraInches * 7); 
+        }
+
+        const distributorPrice = finalPrice * 0.65;
+
+        // Output Values
+        document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-price').innerText = finalPrice.toFixed(2);
+        document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        
+        // Reset Copy Button Styling
+        const copyBtn = document.getElementById('copy-btn');
+        copyBtn.innerText = 'Copy';
+        copyBtn.classList.remove('copied');
+    }
+
+    function copyPart() {
+        const partText = document.getElementById('out-part').innerText;
+        navigator.clipboard.writeText(partText).then(() => {
+            const btn = document.getElementById('copy-btn');
+            btn.innerText = 'Copied!';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+                btn.innerText = 'Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+    }
+
+    window.onload = updateVoltages;
+</script>
+
+</body>
+</html>
