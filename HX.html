@@ -43,7 +43,7 @@
 <body>
 
 <div class="container">
-    <h1>Heater Pricing Wizard</h1>
+    <h1>HX Series Pricing Wizard</h1>
 
     <div class="form-group">
         <label for="wattage">Wattage (W)</label>
@@ -66,6 +66,14 @@
     </div>
 
     <div class="form-group">
+        <label for="phase">Phase</label>
+        <select id="phase" onchange="calculate()">
+            <option value="3">3 Phase (Standard)</option>
+            <option value="1">1 Phase</option>
+        </select>
+    </div>
+
+    <div class="form-group">
         <label for="fuse">Fuse</label>
         <select id="fuse" onchange="calculate()">
             <option value="P1">P1</option>
@@ -84,21 +92,14 @@
         <label for="guard" style="margin-bottom: 0;">Include Guard?</label>
     </div>
 
-    <div class="form-group hidden" id="riser-group">
-        <label for="riser">Riser Length (inches)</label>
-        <input type="number" id="riser" min="1" oninput="calculate()">
-    </div>
-
     <div class="form-group" id="overall-length-group">
         <label for="length">Overall Length (inches)</label>
         <input type="number" id="length" min="1" oninput="calculate()">
-
     </div>
 
     <div class="form-group">
         <label for="conduit">Conduit Length (inches)</label>
         <input type="number" id="conduit" value="36" min="1" oninput="calculate()">
-   
     </div>
 
     <div class="results">
@@ -106,48 +107,57 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
+    // HX Series Database - Refactored to template string {v}
     const heaters = [
-        { watts: 500, volts: 120, part: "HX.5111-**", price: 580, length: 11, guard: 132 },
-        { watts: 500, volts: 240, part: "HX.5211-**", price: 580, length: 11, guard: 132 },
-        { watts: 1000, volts: 120, part: "HX1111-**", price: 641, length: 11, guard: 132 },
-        { watts: 1000, volts: 240, part: "HX1211-**", price: 641, length: 11, guard: 132 },
-        { watts: 2000, volts: 120, part: "HX2117-**", price: 814, length: 17, guard: 146 },
-        { watts: 2000, volts: 240, part: "HX2217-**", price: 814, length: 17, guard: 146 },
-        { watts: 2000, volts: 480, part: "HX2417-**", price: 814, length: 17, guard: 146 },
-        { watts: 3000, volts: 240, part: "HX3223-**", price: 984, length: 23, guard: 157 },
-        { watts: 3000, volts: 480, part: "HX3423-**", price: 984, length: 23, guard: 157 },
-        { watts: 4000, volts: 240, part: "HX4229-**", price: 1328, length: 29, guard: 167 },
-        { watts: 4000, volts: 480, part: "HX4429-**", price: 1328, length: 29, guard: 167 },
-        { watts: 5000, volts: 240, part: "HX5235-**", price: 1569, length: 35, guard: 176 },
-        { watts: 5000, volts: 480, part: "HX5435-**", price: 1569, length: 35, guard: 176 },
-        { watts: 6000, volts: 240, part: "HX6240-**", price: 1716, length: 40, guard: 185 },
-        { watts: 6000, volts: 480, part: "HX6440-**", price: 1716, length: 40, guard: 185 },
-        { watts: 8000, volts: 240, part: "2HX8247-**", price: 2471, length: 47, guard: 208 },
-        { watts: 8000, volts: 480, part: "2HX8447-**", price: 2471, length: 47, guard: 208 },
-        { watts: 9000, volts: 240, part: "2HX9254-**", price: 2642, length: 54, guard: 225 },
-        { watts: 9000, volts: 480, part: "2HX9454-**", price: 2642, length: 54, guard: 225 },
+        { watts: 500,  template: "HX.5{v}11-**",  price: 580,  length: 11, guard: 132 },
+        { watts: 1000, template: "HX1{v}11-**",   price: 641,  length: 11, guard: 132 },
+        { watts: 2000, template: "HX2{v}17-**",   price: 814,  length: 17, guard: 146 },
+        { watts: 3000, template: "HX3{v}23-**",   price: 984,  length: 23, guard: 157 },
+        { watts: 4000, template: "HX4{v}29-**",   price: 1328, length: 29, guard: 167 },
+        { watts: 5000, template: "HX5{v}35-**",   price: 1569, length: 35, guard: 176 },
+        { watts: 6000, template: "HX6{v}40-**",   price: 1716, length: 40, guard: 185 },
+        { watts: 8000, template: "2HX8{v}47-**",  price: 2471, length: 47, guard: 208 },
+        { watts: 9000, template: "2HX9{v}54-**",  price: 2642, length: 54, guard: 225 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
+        allVoltages.forEach(v => {
+            // Factory rule: 600V not available on 5kW and 6kW heaters
+            if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
+                return; 
             }
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateForm();
@@ -155,21 +165,13 @@
 
     function updateForm() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
-        const isRiser = heater.part.includes('R*');
-        document.getElementById('riser-group').classList.toggle('hidden', !isRiser);
-        document.getElementById('overall-length-group').classList.toggle('hidden', isRiser);
-
+        // Populate the standard overall length based on the table
         document.getElementById('length').value = heater.length;
         document.getElementById('length').min = heater.length; 
-        
-        if (isRiser) {
-            document.getElementById('riser').value = 10; 
-        }
 
         calculate();
     }
@@ -177,61 +179,79 @@
     function calculate() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = parseInt(document.getElementById('voltage').value);
+        const phase = document.getElementById('phase').value;
         const fuse = document.getElementById('fuse').value;
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
-        let generatedPart = heater.part;
+        
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        let generatedPart = heater.template.replace('{v}', vCode);
 
-        const isRiser = heater.part.includes('R*');
+        // 2. Process Lengths
         const customLength = parseInt(document.getElementById('length').value) || heater.length;
 
-        if (!isRiser) {
-            if (customLength > heater.length) {
-                generatedPart = generatedPart.replace(heater.length + '-**', customLength + '-**');
-                const extraInches = customLength - heater.length;
-                const is2HX = heater.part.startsWith('2HX');
-                finalPrice += extraInches * (is2HX ? 8 : 3);
-                guardPrice += extraInches * 1; 
-            }
-        } else {
-            const customRiser = parseInt(document.getElementById('riser').value) || 0;
-            generatedPart = generatedPart.replace('R*', 'R' + customRiser);
+        // Process Overall Length Surcharges
+        if (customLength > heater.length) {
+            const extraInches = customLength - heater.length;
+            const is2HX = heater.template.startsWith('2HX');
+            
+            finalPrice += extraInches * (is2HX ? 8 : 3);
+            guardPrice += extraInches * 1; 
+
+            // Replace the standard length in the part number with the custom length
+            generatedPart = generatedPart.replace(heater.length + '-**', customLength + '-**');
         }
 
-        generatedPart = generatedPart.replace('**', fuse);
+        // 3. Process Phase & Fuse Format
+        // Prepend "1-" to the fuse if 1 Phase is selected
+        const fuseFormatted = (phase === "1") ? "1-" + fuse : fuse;
+        generatedPart = generatedPart.replace('**', fuseFormatted);
+
         if (fuse === 'P8') {
             finalPrice += 48;
         }
 
+        // Guard Selection
         if (includeGuard) {
             finalPrice += guardPrice;
         }
 
+        // Conduit Length Selection
         if (conduitLength > 36) {
             generatedPart += "-X" + conduitLength;
             const extraFeet = (conduitLength - 36) / 12;
             finalPrice += (extraFeet * 10); 
         }
 
+        // Calculate Amps based on Phase
+        let amps = 0;
+        if (phase === "3") {
+            amps = wSelect / (vSelect * Math.sqrt(3));
+        } else {
+            amps = wSelect / vSelect;
+        }
+
         const distributorPrice = finalPrice * 0.65;
 
+        // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps.toFixed(2);
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         
-        // Reset copy button state on new calculation
+        // Reset Copy Button Styling
         const copyBtn = document.getElementById('copy-btn');
         copyBtn.innerText = 'Copy';
         copyBtn.classList.remove('copied');
     }
 
-    // New function to handle copying the part number
     function copyPart() {
         const partText = document.getElementById('out-part').innerText;
         navigator.clipboard.writeText(partText).then(() => {
@@ -239,7 +259,6 @@
             btn.innerText = 'Copied!';
             btn.classList.add('copied');
             
-            // Revert back after 2 seconds
             setTimeout(() => {
                 btn.innerText = 'Copy';
                 btn.classList.remove('copied');

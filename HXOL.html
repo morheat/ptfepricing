@@ -25,7 +25,7 @@
 <body>
 
 <div class="container">
-    <h1>HXOL Series Pricing Wizard</h1>
+    <h1>HXOL Series Pricing Wizard (Single Phase)</h1>
 
     <div class="form-group">
         <label for="wattage">Wattage (W)</label>
@@ -71,7 +71,7 @@
     <div class="form-group">
         <label for="conduit">Flexible lead length</label>
         <input type="number" id="conduit" value="48" min="1" oninput="calculate()">
-     
+        <small style="color:#7f8c8d;">Standard 48" (4 feet). Extra lengths add $7 per inch.</small>
     </div>
 
     <div class="results">
@@ -79,81 +79,74 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
-    // HXOL Series Database
+    // HXOL Series Database - Refactored to template string {v}
     const heaters = [
-        { watts: 1000, volts: 120, label: 'Width 2", Length 11"', part: "HXOL1102-11L-**", price: 1267, guard: 130 },
-        { watts: 1000, volts: 240, label: 'Width 2", Length 11"', part: "HXOL1202-11L-**", price: 1267, guard: 130 },
-        { watts: 1000, volts: 120, label: 'Width 4", Length 8"', part: "HXOL1104-08L-**", price: 1267, guard: 130 },
-        { watts: 1000, volts: 240, label: 'Width 4", Length 8"', part: "HXOL1204-08L-**", price: 1267, guard: 130 },
+        { watts: 1000, label: 'Width 2", Length 11"', template: "HXOL1{v}02-11L-**", price: 1267, guard: 130 },
+        { watts: 1000, label: 'Width 4", Length 8"',  template: "HXOL1{v}04-08L-**", price: 1267, guard: 130 },
 
-        { watts: 2000, volts: 120, label: 'Width 4", Length 13"', part: "HXOL2104-13L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 240, label: 'Width 4", Length 13"', part: "HXOL2204-13L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 480, label: 'Width 4", Length 13"', part: "HXOL2404-13L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 120, label: 'Width 5", Length 10"', part: "HXOL2105-10L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 240, label: 'Width 5", Length 10"', part: "HXOL2205-10L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 480, label: 'Width 5", Length 10"', part: "HXOL2405-10L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 120, label: 'Width 6", Length 8"', part: "HXOL2106-08L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 240, label: 'Width 6", Length 8"', part: "HXOL2206-08L-**", price: 1720, guard: 141 },
-        { watts: 2000, volts: 480, label: 'Width 6", Length 8"', part: "HXOL2406-08L-**", price: 1720, guard: 141 },
+        { watts: 2000, label: 'Width 4", Length 13"', template: "HXOL2{v}04-13L-**", price: 1720, guard: 141 },
+        { watts: 2000, label: 'Width 5", Length 10"', template: "HXOL2{v}05-10L-**", price: 1720, guard: 141 },
+        { watts: 2000, label: 'Width 6", Length 8"',  template: "HXOL2{v}06-08L-**", price: 1720, guard: 141 },
 
-        { watts: 3000, volts: 240, label: 'Width 4", Length 18"', part: "HXOL3204-18L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 480, label: 'Width 4", Length 18"', part: "HXOL3404-18L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 240, label: 'Width 5", Length 12"', part: "HXOL3205-12L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 480, label: 'Width 5", Length 12"', part: "HXOL3405-12L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 240, label: 'Width 6", Length 11"', part: "HXOL3206-11L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 480, label: 'Width 6", Length 11"', part: "HXOL3406-11L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 240, label: 'Width 8", Length 8"', part: "HXOL3208-08L-**", price: 2209, guard: 152 },
-        { watts: 3000, volts: 480, label: 'Width 8", Length 8"', part: "HXOL3408-08L-**", price: 2209, guard: 152 },
+        { watts: 3000, label: 'Width 4", Length 18"', template: "HXOL3{v}04-18L-**", price: 2209, guard: 152 },
+        { watts: 3000, label: 'Width 5", Length 12"', template: "HXOL3{v}05-12L-**", price: 2209, guard: 152 },
+        { watts: 3000, label: 'Width 6", Length 11"', template: "HXOL3{v}06-11L-**", price: 2209, guard: 152 },
+        { watts: 3000, label: 'Width 8", Length 8"',  template: "HXOL3{v}08-08L-**", price: 2209, guard: 152 },
 
-        { watts: 4000, volts: 240, label: 'Width 5", Length 18"', part: "HXOL4205-18L-**", price: 2317, guard: 162 },
-        { watts: 4000, volts: 480, label: 'Width 5", Length 18"', part: "HXOL4405-18L-**", price: 2317, guard: 162 },
-        { watts: 4000, volts: 240, label: 'Width 6", Length 14"', part: "HXOL4206-14L-**", price: 2317, guard: 162 },
-        { watts: 4000, volts: 480, label: 'Width 6", Length 14"', part: "HXOL4406-14L-**", price: 2317, guard: 162 },
-        { watts: 4000, volts: 240, label: 'Width 8", Length 11"', part: "HXOL4208-11L-**", price: 2317, guard: 162 },
-        { watts: 4000, volts: 480, label: 'Width 8", Length 11"', part: "HXOL4408-11L-**", price: 2317, guard: 162 },
+        { watts: 4000, label: 'Width 5", Length 18"', template: "HXOL4{v}05-18L-**", price: 2317, guard: 162 },
+        { watts: 4000, label: 'Width 6", Length 14"', template: "HXOL4{v}06-14L-**", price: 2317, guard: 162 },
+        { watts: 4000, label: 'Width 8", Length 11"', template: "HXOL4{v}08-11L-**", price: 2317, guard: 162 },
 
-        { watts: 5000, volts: 240, label: 'Width 6", Length 18"', part: "HXOL5206-18L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 480, label: 'Width 6", Length 18"', part: "HXOL5406-18L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 240, label: 'Width 8", Length 13"', part: "HXOL5208-13L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 480, label: 'Width 8", Length 13"', part: "HXOL5408-13L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 240, label: 'Width 9", Length 11"', part: "HXOL5209-11L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 480, label: 'Width 9", Length 11"', part: "HXOL5409-11L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 240, label: 'Width 10", Length 10"', part: "HXOL5210-10L-**", price: 2630, guard: 175 },
-        { watts: 5000, volts: 480, label: 'Width 10", Length 10"', part: "HXOL5410-10L-**", price: 2630, guard: 175 },
+        { watts: 5000, label: 'Width 6", Length 18"', template: "HXOL5{v}06-18L-**", price: 2630, guard: 175 },
+        { watts: 5000, label: 'Width 8", Length 13"', template: "HXOL5{v}08-13L-**", price: 2630, guard: 175 },
+        { watts: 5000, label: 'Width 9", Length 11"', template: "HXOL5{v}09-11L-**", price: 2630, guard: 175 },
+        { watts: 5000, label: 'Width 10", Length 10"',template: "HXOL5{v}10-10L-**", price: 2630, guard: 175 },
 
-        { watts: 6000, volts: 240, label: 'Width 7", Length 18"', part: "HXOL6207-18L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 480, label: 'Width 7", Length 18"', part: "HXOL6407-18L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 240, label: 'Width 8", Length 15"', part: "HXOL6208-15L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 480, label: 'Width 8", Length 15"', part: "HXOL6408-15L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 240, label: 'Width 9", Length 13"', part: "HXOL6209-13L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 480, label: 'Width 9", Length 13"', part: "HXOL6409-13L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 240, label: 'Width 10", Length 12"', part: "HXOL6210-12L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 480, label: 'Width 10", Length 12"', part: "HXOL6410-12L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 240, label: 'Width 11", Length 11"', part: "HXOL6211-11L-**", price: 2914, guard: 175 },
-        { watts: 6000, volts: 480, label: 'Width 11", Length 11"', part: "HXOL6411-11L-**", price: 2914, guard: 175 },
+        { watts: 6000, label: 'Width 7", Length 18"', template: "HXOL6{v}07-18L-**", price: 2914, guard: 175 },
+        { watts: 6000, label: 'Width 8", Length 15"', template: "HXOL6{v}08-15L-**", price: 2914, guard: 175 },
+        { watts: 6000, label: 'Width 9", Length 13"', template: "HXOL6{v}09-13L-**", price: 2914, guard: 175 },
+        { watts: 6000, label: 'Width 10", Length 12"',template: "HXOL6{v}10-12L-**", price: 2914, guard: 175 },
+        { watts: 6000, label: 'Width 11", Length 11"',template: "HXOL6{v}11-11L-**", price: 2914, guard: 175 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        // Extract unique voltages available for the chosen wattage
-        const availableVoltages = [...new Set(heaters.filter(h => h.watts === wSelect).map(h => h.volts))];
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
+        allVoltages.forEach(v => {
+            // Apply standard factory rule: 600V not available on 5kW and 6kW heaters
+            if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
+                return; 
             }
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateSizes();
@@ -161,16 +154,15 @@
 
     function updateSizes() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         const sSelect = document.getElementById('size');
         sSelect.innerHTML = '';
 
-        // Extract available Width x Length combinations for the chosen Wattage & Voltage
-        const availableHeaters = heaters.filter(h => h.watts === wSelect && h.volts === vSelect);
+        // Extract available Width x Length combinations for the chosen Wattage
+        const availableHeaters = heaters.filter(h => h.watts === wSelect);
         
         availableHeaters.forEach(h => {
             let opt = document.createElement('option');
-            opt.value = h.part;
+            opt.value = h.template;
             opt.textContent = h.label;
             sSelect.appendChild(opt);
         });
@@ -179,16 +171,22 @@
     }
 
     function calculate() {
-        const selectedPartStr = document.getElementById('size').value;
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const vSelect = parseInt(document.getElementById('voltage').value);
+        const selectedTemplateStr = document.getElementById('size').value;
         const fuse = document.getElementById('fuse').value;
         const includeGuard = document.getElementById('guard').checked;
         const flexLength = parseInt(document.getElementById('conduit').value) || 48;
         
-        const heater = heaters.find(h => h.part === selectedPartStr);
+        const heater = heaters.find(h => h.template === selectedTemplateStr);
         if (!heater) return;
 
         let finalPrice = heater.price;
-        let generatedPart = heater.part;
+        let generatedPart = heater.template;
+
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        generatedPart = generatedPart.replace('{v}', vCode);
 
         // Process Fuse Surcharge
         generatedPart = generatedPart.replace('**', fuse);
@@ -208,10 +206,14 @@
             finalPrice += (extraInches * 7); 
         }
 
+        // Calculate Single-Phase Amps (Power / Voltage)
+        const amps = (wSelect / vSelect).toFixed(2);
+
         const distributorPrice = finalPrice * 0.65;
 
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         

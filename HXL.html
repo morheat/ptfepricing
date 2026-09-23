@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HXL Series Pricing Wizard</title>
+    <title>HXL Series Heater Pricing Wizard</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -67,15 +67,13 @@
     </div>
 
     <div class="form-group" id="riser-group">
-        <label for="riser">Vertical Length / Riser (inches)</label>
+        <label for="riser">Riser (inches)</label>
         <input type="number" id="riser" min="1" oninput="calculate()">
-  
     </div>
 
     <div class="form-group">
         <label for="conduit">Conduit Length (inches)</label>
         <input type="number" id="conduit" value="36" min="1" oninput="calculate()">
-
     </div>
 
     <div class="results">
@@ -83,49 +81,57 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
-    // HXL Series Database
+    // HXL Series Database - Refactored to use a Part Template string {v} for the voltage digit
     const heaters = [
-        { watts: 500, volts: 120, part: "HXL.5106-R*-**", price: 632, length: 12, guard: 147 },
-        { watts: 500, volts: 240, part: "HXL.5206-R*-**", price: 632, length: 12, guard: 147 },
-        { watts: 1000, volts: 120, part: "HXL1108-R*-**", price: 699, length: 12, guard: 151 },
-        { watts: 1000, volts: 240, part: "HXL1208-R*-**", price: 699, length: 12, guard: 151 },
-        { watts: 2000, volts: 120, part: "HXL2112-R*-**", price: 866, length: 18, guard: 183 },
-        { watts: 2000, volts: 240, part: "HXL2212-R*-**", price: 866, length: 18, guard: 183 },
-        { watts: 2000, volts: 480, part: "HXL2412-R*-**", price: 866, length: 18, guard: 183 },
-        { watts: 3000, volts: 240, part: "HXL3217-R*-**", price: 1043, length: 18, guard: 186 },
-        { watts: 3000, volts: 480, part: "HXL3417-R*-**", price: 1043, length: 18, guard: 186 },
-        { watts: 4000, volts: 240, part: "HXL4220-R*-**", price: 1388, length: 18, guard: 196 },
-        { watts: 4000, volts: 480, part: "HXL4420-R*-**", price: 1388, length: 18, guard: 196 },
-        { watts: 5000, volts: 240, part: "HXL5224-R*-**", price: 1637, length: 18, guard: 225 },
-        { watts: 5000, volts: 480, part: "HXL5424-R*-**", price: 1637, length: 18, guard: 225 },
-        { watts: 6000, volts: 240, part: "HXL6229-R*-**", price: 1782, length: 18, guard: 246 },
-        { watts: 6000, volts: 480, part: "HXL6429-R*-**", price: 1782, length: 18, guard: 246 },
-        { watts: 8000, volts: 240, part: "2HXL8237-R*-**", price: 2549, length: 18, guard: 289 },
-        { watts: 8000, volts: 480, part: "2HXL8437-R*-**", price: 2549, length: 18, guard: 289 },
-        { watts: 9000, volts: 240, part: "2HXL9244-R*-**", price: 2725, length: 18, guard: 309 },
-        { watts: 9000, volts: 480, part: "2HXL9444-R*-**", price: 2725, length: 18, guard: 309 },
+        { watts: 500,  template: "HXL.5{v}06-R*-**",  price: 632,  length: 12, guard: 147 },
+        { watts: 1000, template: "HXL1{v}08-R*-**",   price: 699,  length: 12, guard: 151 },
+        { watts: 2000, template: "HXL2{v}12-R*-**",   price: 866,  length: 18, guard: 183 },
+        { watts: 3000, template: "HXL3{v}17-R*-**",   price: 1043, length: 18, guard: 186 },
+        { watts: 4000, template: "HXL4{v}20-R*-**",   price: 1388, length: 18, guard: 196 },
+        { watts: 5000, template: "HXL5{v}24-R*-**",   price: 1637, length: 18, guard: 225 },
+        { watts: 6000, template: "HXL6{v}29-R*-**",   price: 1782, length: 18, guard: 246 },
+        { watts: 8000, template: "2HXL8{v}37-R*-**",  price: 2549, length: 18, guard: 289 },
+        { watts: 9000, template: "2HXL9{v}44-R*-**",  price: 2725, length: 18, guard: 309 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
+        allVoltages.forEach(v => {
+            // Apply factory rule: 600V not available on 5kW and 6kW heaters
+            if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
+                return; 
             }
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateForm();
@@ -133,9 +139,8 @@
 
     function updateForm() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         // Populate the standard vertical length based on the table
@@ -152,19 +157,22 @@
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
-        let generatedPart = heater.part;
+        
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        let generatedPart = heater.template.replace('{v}', vCode);
 
         const customLength = parseInt(document.getElementById('riser').value) || heater.length;
 
-        // Process Vertical Length / Riser Surcharges
+        // 2. Process Vertical Length / Riser Surcharges
         if (customLength > heater.length) {
             const extraInches = customLength - heater.length;
-            const is2HXL = heater.part.startsWith('2HXL');
+            const is2HXL = heater.template.startsWith('2HXL');
             
             finalPrice += extraInches * (is2HXL ? 8 : 3);
             guardPrice += extraInches * 1; 
@@ -191,10 +199,14 @@
             finalPrice += (extraFeet * 10); 
         }
 
+        // Calculate Single-Phase Amps (Wattage / Voltage)
+        const amps = (wSelect / vSelect).toFixed(2);
+
         const distributorPrice = finalPrice * 0.65;
 
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         

@@ -69,13 +69,11 @@
     <div class="form-group" id="overall-length-group">
         <label for="length">Overall Length (inches)</label>
         <input type="number" id="length" min="1" oninput="calculate()">
-
     </div>
 
     <div class="form-group">
         <label for="conduit">Conduit Length (inches)</label>
         <input type="number" id="conduit" value="36" min="1" oninput="calculate()">
-
     </div>
 
     <div class="results">
@@ -83,49 +81,57 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
-    // HXO Series Database
+    // HXO Series Database - Refactored to use a Part Template string {v} for the voltage digit
     const heaters = [
-        { watts: 500, volts: 120, part: "HXO.5105-06-11-**", price: 666, length: 11, guard: 155 },
-        { watts: 500, volts: 240, part: "HXO.5205-06-11-**", price: 666, length: 11, guard: 155 },
-        { watts: 1000, volts: 120, part: "HXO1106-07-11-**", price: 716, length: 11, guard: 165 },
-        { watts: 1000, volts: 240, part: "HXO1206-07-11-**", price: 716, length: 11, guard: 165 },
-        { watts: 2000, volts: 120, part: "HXO2106-10-17-**", price: 876, length: 17, guard: 180 },
-        { watts: 2000, volts: 240, part: "HXO2206-10-17-**", price: 876, length: 17, guard: 180 },
-        { watts: 2000, volts: 480, part: "HXO2406-10-17-**", price: 876, length: 17, guard: 180 },
-        { watts: 3000, volts: 240, part: "HXO3206-12-23-**", price: 1038, length: 23, guard: 204 },
-        { watts: 3000, volts: 480, part: "HXO3406-12-23-**", price: 1038, length: 23, guard: 204 },
-        { watts: 4000, volts: 240, part: "HXO4206-19-29-**", price: 1366, length: 29, guard: 226 },
-        { watts: 4000, volts: 480, part: "HXO4406-19-29-**", price: 1366, length: 29, guard: 226 },
-        { watts: 5000, volts: 240, part: "HXO5206-20-35-**", price: 1615, length: 35, guard: 249 },
-        { watts: 5000, volts: 480, part: "HXO5406-20-35-**", price: 1615, length: 35, guard: 249 },
-        { watts: 6000, volts: 240, part: "HXO6208-22-40-**", price: 1745, length: 40, guard: 280 },
-        { watts: 6000, volts: 480, part: "HXO6408-22-40-**", price: 1745, length: 40, guard: 280 },
-        { watts: 8000, volts: 240, part: "2HXO8208-36-47-**", price: 2661, length: 47, guard: 339 },
-        { watts: 8000, volts: 480, part: "2HXO8408-36-47-**", price: 2661, length: 47, guard: 339 },
-        { watts: 9000, volts: 240, part: "2HXO9208-40-54-**", price: 2811, length: 54, guard: 368 },
-        { watts: 9000, volts: 480, part: "2HXO9408-40-54-**", price: 2811, length: 54, guard: 368 },
+        { watts: 500,  template: "HXO.5{v}05-06-11-**", price: 666,  length: 11, guard: 155 },
+        { watts: 1000, template: "HXO1{v}06-07-11-**",  price: 716,  length: 11, guard: 165 },
+        { watts: 2000, template: "HXO2{v}06-10-17-**",  price: 876,  length: 17, guard: 180 },
+        { watts: 3000, template: "HXO3{v}06-12-23-**",  price: 1038, length: 23, guard: 204 },
+        { watts: 4000, template: "HXO4{v}06-19-29-**",  price: 1366, length: 29, guard: 226 },
+        { watts: 5000, template: "HXO5{v}06-20-35-**",  price: 1615, length: 35, guard: 249 },
+        { watts: 6000, template: "HXO6{v}08-22-40-**",  price: 1745, length: 40, guard: 280 },
+        { watts: 8000, template: "2HXO8{v}08-36-47-**", price: 2661, length: 47, guard: 339 },
+        { watts: 9000, template: "2HXO9{v}08-40-54-**", price: 2811, length: 54, guard: 368 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
+        allVoltages.forEach(v => {
+            // Apply factory rule: 600V not available on 5kW and 6kW heaters
+            if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
+                return; 
             }
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateForm();
@@ -133,9 +139,9 @@
 
     function updateForm() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        // Find the base heater configuration by wattage
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         // Populate the standard overall length based on the table
@@ -152,19 +158,23 @@
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
-        let generatedPart = heater.part;
+        
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        let generatedPart = heater.template.replace('{v}', vCode);
 
+        // 2. Process Lengths
         const customLength = parseInt(document.getElementById('length').value) || heater.length;
 
         // Process Overall Length Surcharges
         if (customLength > heater.length) {
             const extraInches = customLength - heater.length;
-            const is2HXO = heater.part.startsWith('2HXO');
+            const is2HXO = heater.template.startsWith('2HXO');
             
             finalPrice += extraInches * (is2HXO ? 8 : 3);
             guardPrice += extraInches * 1; 
@@ -192,10 +202,14 @@
             finalPrice += (extraFeet * 10); 
         }
 
+        // Calculate Single-Phase Amps (Wattage / Voltage)
+        const amps = (wSelect / vSelect).toFixed(2);
+
         const distributorPrice = finalPrice * 0.65;
 
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         

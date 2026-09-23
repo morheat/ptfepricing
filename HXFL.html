@@ -65,15 +65,13 @@
     </div>
 
     <div class="form-group" id="riser-group">
-        <label for="riser">Vertical Length / Riser (inches)</label>
+        <label for="riser">Riser</label>
         <input type="number" id="riser" min="1" oninput="calculate()">
-
     </div>
 
     <div class="form-group">
         <label for="conduit">Conduit Length (inches)</label>
         <input type="number" id="conduit" value="36" min="1" oninput="calculate()">
-        
     </div>
 
     <div class="results">
@@ -81,45 +79,55 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
-    // HXFL Series Database
+    // HXFL Series Database - Refactored to use a Part Template string {v} for the voltage digit
     const heaters = [
-        { watts: 500, volts: 120, part: "HXFL.5105-R*-**", price: 632, length: 12, guard: 174 },
-        { watts: 500, volts: 240, part: "HXFL.5205-R*-**", price: 632, length: 12, guard: 174 },
-        { watts: 1000, volts: 120, part: "HXFL1106-R*-**", price: 699, length: 12, guard: 178 },
-        { watts: 1000, volts: 240, part: "HXFL1206-R*-**", price: 699, length: 12, guard: 178 },
-        { watts: 2000, volts: 120, part: "HXFL2108-R*-**", price: 866, length: 18, guard: 193 },
-        { watts: 2000, volts: 240, part: "HXFL2208-R*-**", price: 866, length: 18, guard: 193 },
-        { watts: 2000, volts: 480, part: "HXFL2408-R*-**", price: 866, length: 18, guard: 193 },
-        { watts: 3000, volts: 240, part: "HXFL3209-R*-**", price: 1043, length: 18, guard: 226 },
-        { watts: 3000, volts: 480, part: "HXFL3409-R*-**", price: 1043, length: 18, guard: 226 },
-        { watts: 4000, volts: 240, part: "HXFL4211-R*-**", price: 1388, length: 18, guard: 246 },
-        { watts: 4000, volts: 480, part: "HXFL4411-R*-**", price: 1388, length: 18, guard: 246 },
-        { watts: 5000, volts: 240, part: "HXFL5212-R*-**", price: 1637, length: 18, guard: 274 },
-        { watts: 5000, volts: 480, part: "HXFL5412-R*-**", price: 1637, length: 18, guard: 274 },
-        { watts: 6000, volts: 240, part: "HXFL6213-R*-**", price: 1782, length: 18, guard: 296 },
-        { watts: 6000, volts: 480, part: "HXFL6413-R*-**", price: 1782, length: 18, guard: 296 },
+        { watts: 500,  template: "HXFL.5{v}05-R*-**", price: 632,  length: 12, guard: 174 },
+        { watts: 1000, template: "HXFL1{v}06-R*-**",  price: 699,  length: 12, guard: 178 },
+        { watts: 2000, template: "HXFL2{v}08-R*-**",  price: 866,  length: 18, guard: 193 },
+        { watts: 3000, template: "HXFL3{v}09-R*-**",  price: 1043, length: 18, guard: 226 },
+        { watts: 4000, template: "HXFL4{v}11-R*-**",  price: 1388, length: 18, guard: 246 },
+        { watts: 5000, template: "HXFL5{v}12-R*-**",  price: 1637, length: 18, guard: 274 },
+        { watts: 6000, template: "HXFL6{v}13-R*-**",  price: 1782, length: 18, guard: 296 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
+        allVoltages.forEach(v => {
+            // Apply factory rule: 600V not available on 5kW and 6kW heaters
+            if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
+                return; 
             }
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateForm();
@@ -127,9 +135,9 @@
 
     function updateForm() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        // Find the base heater configuration by wattage
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         // Populate the standard vertical length based on the table
@@ -146,13 +154,17 @@
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
-        let generatedPart = heater.part;
+        
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        let generatedPart = heater.template.replace('{v}', vCode);
 
+        // 2. Process Lengths
         const customLength = parseInt(document.getElementById('riser').value) || heater.length;
 
         // Process Vertical Length / Riser Surcharges
@@ -183,10 +195,14 @@
             finalPrice += (extraFeet * 10); 
         }
 
+        // Calculate Single-Phase Amps (Wattage / Voltage)
+        const amps = (wSelect / vSelect).toFixed(2);
+
         const distributorPrice = finalPrice * 0.65;
 
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         

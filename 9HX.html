@@ -46,6 +46,14 @@
     </div>
 
     <div class="form-group">
+        <label for="phase">Phase</label>
+        <select id="phase" onchange="calculate()">
+            <option value="3">3 Phase (Standard)</option>
+            <option value="1">1 Phase</option>
+        </select>
+    </div>
+
+    <div class="form-group">
         <label for="fuse">Fuse</label>
         <select id="fuse" onchange="calculate()">
             <option value="P1">P1</option>
@@ -81,44 +89,51 @@
             Part Number: <span id="out-part" style="margin-left: 5px;"></span>
             <button id="copy-btn" onclick="copyPart()">Copy</button>
         </div>
+        <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
     </div>
 </div>
 
 <script>
-    // 9HX Series Database
+    // 9HX Series Database - Refactored to template string {v}
     const heaters = [
-        { watts: 3000, volts: 240, part: "9HX3217-**", price: 1710, length: 17, guard: 228 },
-        { watts: 3000, volts: 480, part: "9HX3417-**", price: 1710, length: 17, guard: 228 },
-        { watts: 4500, volts: 240, part: "9HX4.5223-**", price: 1893, length: 23, guard: 258 },
-        { watts: 4500, volts: 480, part: "9HX4.5423-**", price: 1893, length: 23, guard: 258 },
-        { watts: 6000, volts: 240, part: "9HX6229-**", price: 2147, length: 29, guard: 273 },
-        { watts: 6000, volts: 480, part: "9HX6429-**", price: 2147, length: 29, guard: 273 },
-        { watts: 9000, volts: 240, part: "9HX9235-**", price: 2604, length: 35, guard: 311 },
-        { watts: 9000, volts: 480, part: "9HX9435-**", price: 2604, length: 35, guard: 311 },
-        { watts: 12000, volts: 240, part: "9HX12247-**", price: 3043, length: 47, guard: 358 },
-        { watts: 12000, volts: 480, part: "9HX12447-**", price: 3043, length: 47, guard: 358 },
-        { watts: 15000, volts: 240, part: "9HX15259-**", price: 3712, length: 59, guard: 467 },
-        { watts: 15000, volts: 480, part: "9HX15459-**", price: 3712, length: 59, guard: 467 },
-        { watts: 18000, volts: 240, part: "9HX18268-**", price: 3992, length: 68, guard: 547 },
-        { watts: 18000, volts: 480, part: "9HX18468-**", price: 3992, length: 68, guard: 547 },
+        { watts: 3000,  template: "9HX3{v}17-**",   price: 1710, length: 17, guard: 228 },
+        { watts: 4500,  template: "9HX4.5{v}23-**", price: 1893, length: 23, guard: 258 },
+        { watts: 6000,  template: "9HX6{v}29-**",   price: 2147, length: 29, guard: 273 },
+        { watts: 9000,  template: "9HX9{v}35-**",   price: 2604, length: 35, guard: 311 },
+        { watts: 12000, template: "9HX12{v}47-**",  price: 3043, length: 47, guard: 358 },
+        { watts: 15000, template: "9HX15{v}59-**",  price: 3712, length: 59, guard: 467 },
+        { watts: 18000, template: "9HX18{v}68-**",  price: 3992, length: 68, guard: 547 },
     ];
+
+    // Map of voltages to their specific part number code digits
+    const voltageCodes = {
+        120: "1",
+        240: "2",
+        380: "3",
+        480: "4",
+        415: "5",
+        600: "6",
+        400: "7",
+        208: "8",
+        220: "9",
+        200: "0"
+    };
 
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        const availableVoltages = heaters.filter(h => h.watts === wSelect).map(h => h.volts);
+        // All desired voltages
+        const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
-        [120, 240, 480].forEach(v => {
-            if (availableVoltages.includes(v)) {
-                let opt = document.createElement('option');
-                opt.value = v;
-                opt.textContent = v + "V";
-                vSelect.appendChild(opt);
-            }
+        allVoltages.forEach(v => {
+            let opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v + "V";
+            vSelect.appendChild(opt);
         });
 
         updateForm();
@@ -126,9 +141,8 @@
 
     function updateForm() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const vSelect = parseInt(document.getElementById('voltage').value);
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         document.getElementById('length').value = heater.length;
@@ -140,29 +154,38 @@
     function calculate() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = parseInt(document.getElementById('voltage').value);
+        const phase = document.getElementById('phase').value;
         const fuse = document.getElementById('fuse').value;
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
         
-        const heater = heaters.find(h => h.watts === wSelect && h.volts === vSelect);
+        const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
-        let generatedPart = heater.part;
+        
+        // 1. Inject Voltage Code into the Part Number
+        const vCode = voltageCodes[vSelect] || "1";
+        let generatedPart = heater.template.replace('{v}', vCode);
 
+        // 2. Process Lengths
         const customLength = parseInt(document.getElementById('length').value) || heater.length;
 
-        // Process Overall Length Surcharges ($1/inch for guard extensions)
+        // Process Overall Length Surcharges ($1/inch for guard extensions on 9HX series)
         if (customLength > heater.length) {
             const extraInches = customLength - heater.length;
             guardPrice += extraInches * 1; 
 
+            // Replace the standard length in the part number with the custom length
             generatedPart = generatedPart.replace(heater.length + '-**', customLength + '-**');
         }
 
-        // Process Fuse Surcharge
-        generatedPart = generatedPart.replace('**', fuse);
+        // 3. Process Phase & Fuse Format
+        // Prepend "1-" to the fuse if 1 Phase is selected
+        const fuseFormatted = (phase === "1") ? "1-" + fuse : fuse;
+        generatedPart = generatedPart.replace('**', fuseFormatted);
+
         if (fuse === 'P8') {
             finalPrice += 48;
         }
@@ -179,10 +202,19 @@
             finalPrice += (extraFeet * 10); 
         }
 
+        // Calculate Amps based on Phase
+        let amps = 0;
+        if (phase === "3") {
+            amps = wSelect / (vSelect * Math.sqrt(3));
+        } else {
+            amps = wSelect / vSelect;
+        }
+
         const distributorPrice = finalPrice * 0.65;
 
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
+        document.getElementById('out-amps').innerText = amps.toFixed(2);
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
         
