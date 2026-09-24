@@ -19,12 +19,26 @@
         #copy-btn { margin-left: 15px; padding: 4px 12px; font-size: 14px; cursor: pointer; border: 1px solid #bdc3c7; background-color: #fff; color: #2c3e50; border-radius: 4px; transition: all 0.2s; }
         #copy-btn:hover { background-color: #ecf0f1; }
         #copy-btn.copied { background-color: #2ecc71; color: white; border-color: #27ae60; }
+
+        .description-box {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #bdc3c7;
+            font-size: 15px !important;
+            color: #2c3e50;
+            display: block !important;
+            line-height: 1.5;
+        }
+        .description-box span {
+            color: #333;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>HXSL Series Pricing Wizard</h1>
+    <h1>HXSL Series Pricing Wizard (Single Phase)</h1>
 
     <div class="form-group">
         <label for="wattage">Wattage (W)</label>
@@ -61,9 +75,6 @@
             <option value="P2">P2</option>
             <option value="P3">P3</option>
             <option value="P4">P4</option>
-            <option value="P5">P5</option>
-            <option value="P6">P6</option>
-            <option value="P7">P7</option>
             <option value="P8">P8 (+$48)</option>
         </select>
     </div>
@@ -81,6 +92,10 @@
         <div>Current (1-Phase): <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+        <div class="description-box">
+            <strong>Description:</strong><br>
+            <span id="out-desc"></span>
+        </div>
     </div>
 </div>
 
@@ -109,6 +124,15 @@
         200: "0" 
     };
 
+    // Fuse type mapping for description
+    const fuseMap = {
+        "P1": "P1 Replaceable Fuse (190degF)",
+        "P4": "P4 Replaceable Fuse (220degF)",
+        "P2": "P2 Resettable Fuse (190degF)",
+        "P3": "P3 Resettable Fuse (250degF)",
+        "P8": "P8 Resettable Fuse (210degF)"
+    };
+
     function calculate() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = parseInt(document.getElementById('voltage').value);
@@ -121,7 +145,8 @@
         // HXSL + [Wattage 1st Digit] + [Voltage Code] - [Fuse]
         const wattageDigit = wSelect / 1000;
         const vCode = voltageCodes[vSelect];
-        let generatedPart = `HXSL${wattageDigit}${vCode}-${fuse}`;
+        // Since it's single-phase only, ensure the '1-' prefix is attached to the fuse
+        let generatedPart = `HXSL${wattageDigit}${vCode}-1-${fuse}`;
 
         // Process Fuse Surcharge
         if (fuse === 'P8') {
@@ -139,11 +164,23 @@
         const amps = wSelect / vSelect;
         const distributorPrice = finalPrice * 0.65;
 
+        // Generate Description String
+        // Series, Voltage, Phase, Wattage, Conduit Length, Fuse type
+        const seriesDesc = "Custom Flex Riser PTFE Heaters";
+        const voltageDesc = vSelect + "V";
+        const phaseDesc = "Single Phase";
+        const wattageDesc = wSelect + "W";
+        const conduitDesc = flexLength + '" Teflon conduit';
+        const fuseDesc = fuseMap[fuse];
+
+        const descriptionString = `${seriesDesc}, ${voltageDesc}, ${phaseDesc}, ${wattageDesc}, ${conduitDesc}, ${fuseDesc}`;
+
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
         document.getElementById('out-amps').innerText = amps.toFixed(2);
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        document.getElementById('out-desc').innerText = descriptionString;
         
         // Reset Copy Button Styling
         const copyBtn = document.getElementById('copy-btn');

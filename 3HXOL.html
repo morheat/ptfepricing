@@ -20,6 +20,20 @@
         #copy-btn { margin-left: 15px; padding: 4px 12px; font-size: 14px; cursor: pointer; border: 1px solid #bdc3c7; background-color: #fff; color: #2c3e50; border-radius: 4px; transition: all 0.2s; }
         #copy-btn:hover { background-color: #ecf0f1; }
         #copy-btn.copied { background-color: #2ecc71; color: white; border-color: #27ae60; }
+
+        .description-box {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #bdc3c7;
+            font-size: 15px !important;
+            color: #2c3e50;
+            display: block !important;
+            line-height: 1.5;
+        }
+        .description-box span {
+            color: #333;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -59,10 +73,6 @@
             <option value="P1">P1</option>
             <option value="P2">P2</option>
             <option value="P3">P3</option>
-            <option value="P4">P4</option>
-            <option value="P5">P5</option>
-            <option value="P6">P6</option>
-            <option value="P7">P7</option>
             <option value="P8">P8 (+$48)</option>
         </select>
     </div>
@@ -92,6 +102,10 @@
         <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+        <div class="description-box">
+            <strong>Description:</strong><br>
+            <span id="out-desc"></span>
+        </div>
     </div>
 </div>
 
@@ -118,6 +132,36 @@
         400: "7",
         208: "8",
         220: "9"
+    };
+
+    // Hotzone mapping for description
+    const hotzoneMap = {
+        3000: '13"330mm',
+        4500: '11"279mm',
+        6000: '19"483mm',
+        9000: '23"584mm',
+        12000: '30"762mm',
+        15000: '36"914mm',
+        18000: '42"1067mm'
+    };
+
+    // Width mapping for description
+    const widthMap = {
+        3000: '8"203mm',
+        4500: '10-½"263mm',
+        6000: '10-½"263mm',
+        9000: '10-½"263mm',
+        12000: '10-½"263mm',
+        15000: '10-½"263mm',
+        18000: '10-½"263mm'
+    };
+
+    // Fuse type mapping for description
+    const fuseMap = {
+        "P1": "P1 Replaceable Fuse (190degF)",
+        "P2": "P2 Resettable Fuse (190degF)",
+        "P3": "P3 Resettable Fuse (250degF)",
+        "P8": "P8 Resettable Fuse (210degF)"
     };
 
     function updateVoltages() {
@@ -218,11 +262,25 @@
 
         const distributorPrice = finalPrice * 0.65;
 
+        // Generate Description String
+        const seriesDesc = "3 Element Bottom PTFE Heater";
+        const voltageDesc = vSelect + "V";
+        const phaseDesc = (phase === "3") ? "3 Phase" : "1 Phase";
+        const wattageDesc = wSelect + "W";
+        const hotzoneDesc = hotzoneMap[wSelect] + " Hot Zone";
+        const widthDesc = widthMap[wSelect] + " Width";
+        const riserDesc = customLength + '" Riser';
+        const conduitDesc = conduitLength + '" Teflon conduit';
+        const fuseDesc = fuseMap[fuse];
+
+        const descriptionString = `${seriesDesc}, ${voltageDesc}, ${phaseDesc}, ${wattageDesc}, ${hotzoneDesc}, ${widthDesc}, ${riserDesc}, ${conduitDesc}, ${fuseDesc}`;
+
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
         document.getElementById('out-amps').innerText = amps.toFixed(2);
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        document.getElementById('out-desc').innerText = descriptionString;
         
         // Reset Copy Button Styling
         const copyBtn = document.getElementById('copy-btn');

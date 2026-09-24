@@ -38,12 +38,25 @@
             color: white;
             border-color: #27ae60;
         }
+        .description-box {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #bdc3c7;
+            font-size: 15px !important;
+            color: #2c3e50;
+            display: block !important;
+            line-height: 1.5;
+        }
+        .description-box span {
+            color: #333;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>HX Series Pricing Wizard</h1>
+    <h1>HX Series Pricing Wizard (Single Phase)</h1>
 
     <div class="form-group">
         <label for="wattage">Wattage (W)</label>
@@ -66,23 +79,11 @@
     </div>
 
     <div class="form-group">
-        <label for="phase">Phase</label>
-        <select id="phase" onchange="calculate()">
-            <option value="3">3 Phase (Standard)</option>
-            <option value="1">1 Phase</option>
-        </select>
-    </div>
-
-    <div class="form-group">
         <label for="fuse">Fuse</label>
         <select id="fuse" onchange="calculate()">
             <option value="P1">P1</option>
             <option value="P2">P2</option>
             <option value="P3">P3</option>
-            <option value="P4">P4</option>
-            <option value="P5">P5</option>
-            <option value="P6">P6</option>
-            <option value="P7">P7</option>
             <option value="P8">P8 (+$48)</option>
         </select>
     </div>
@@ -110,11 +111,15 @@
         <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+        <div class="description-box">
+            <strong>Description:</strong><br>
+            <span id="out-desc"></span>
+        </div>
     </div>
 </div>
 
 <script>
-    // HX Series Database - Refactored to template string {v}
+    // HX Series Database
     const heaters = [
         { watts: 500,  template: "HX.5{v}11-**",  price: 580,  length: 11, guard: 132 },
         { watts: 1000, template: "HX1{v}11-**",   price: 641,  length: 11, guard: 132 },
@@ -127,7 +132,6 @@
         { watts: 9000, template: "2HX9{v}54-**",  price: 2642, length: 54, guard: 225 },
     ];
 
-    // Map of voltages to their specific part number code digits
     const voltageCodes = {
         120: "1",
         240: "2",
@@ -141,16 +145,35 @@
         200: "0"
     };
 
+    // Hotzone mapping for description
+    const hotzoneMap = {
+        500: '5"127mm',
+        1000: '7"178mm',
+        2000: '12"305mm',
+        3000: '16"406mm',
+        4000: '20"508mm',
+        5000: '25"635mm',
+        6000: '29"737mm',
+        8000: '37"940mm',
+        9000: '44"1118mm'
+    };
+
+    // Fuse type mapping for description
+    const fuseMap = {
+        "P1": "P1 Replaceable Fuse (190degF)",
+        "P2": "P2 Resettable Fuse (190degF)",
+        "P3": "P3 Resettable Fuse (250degF)",
+        "P8": "P8 Resettable Fuse (210degF)"
+    };
+
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        // All desired voltages
         const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
         allVoltages.forEach(v => {
-            // Factory rule: 600V not available on 5kW and 6kW heaters
             if (v === 600 && (wSelect === 5000 || wSelect === 6000)) {
                 return; 
             }
@@ -169,7 +192,6 @@
         const heater = heaters.find(h => h.watts === wSelect);
         if (!heater) return;
 
-        // Populate the standard overall length based on the table
         document.getElementById('length').value = heater.length;
         document.getElementById('length').min = heater.length; 
 
@@ -179,7 +201,6 @@
     function calculate() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = parseInt(document.getElementById('voltage').value);
-        const phase = document.getElementById('phase').value;
         const fuse = document.getElementById('fuse').value;
         const includeGuard = document.getElementById('guard').checked;
         const conduitLength = parseInt(document.getElementById('conduit').value) || 36;
@@ -190,14 +211,11 @@
         let finalPrice = heater.price;
         let guardPrice = heater.guard;
         
-        // 1. Inject Voltage Code into the Part Number
         const vCode = voltageCodes[vSelect] || "1";
         let generatedPart = heater.template.replace('{v}', vCode);
 
-        // 2. Process Lengths
         const customLength = parseInt(document.getElementById('length').value) || heater.length;
 
-        // Process Overall Length Surcharges
         if (customLength > heater.length) {
             const extraInches = customLength - heater.length;
             const is2HX = heater.template.startsWith('2HX');
@@ -205,48 +223,48 @@
             finalPrice += extraInches * (is2HX ? 8 : 3);
             guardPrice += extraInches * 1; 
 
-            // Replace the standard length in the part number with the custom length
             generatedPart = generatedPart.replace(heater.length + '-**', customLength + '-**');
         }
 
-        // 3. Process Phase & Fuse Format
-        // Prepend "1-" to the fuse if 1 Phase is selected
-        const fuseFormatted = (phase === "1") ? "1-" + fuse : fuse;
-        generatedPart = generatedPart.replace('**', fuseFormatted);
+        generatedPart = generatedPart.replace('**', fuse);
 
         if (fuse === 'P8') {
             finalPrice += 48;
         }
 
-        // Guard Selection
         if (includeGuard) {
             finalPrice += guardPrice;
         }
 
-        // Conduit Length Selection
         if (conduitLength > 36) {
             generatedPart += "-X" + conduitLength;
             const extraFeet = (conduitLength - 36) / 12;
             finalPrice += (extraFeet * 10); 
         }
 
-        // Calculate Amps based on Phase
-        let amps = 0;
-        if (phase === "3") {
-            amps = wSelect / (vSelect * Math.sqrt(3));
-        } else {
-            amps = wSelect / vSelect;
-        }
+        const amps = (wSelect / vSelect).toFixed(2);
 
         const distributorPrice = finalPrice * 0.65;
 
+        // Generate Description String
+        const seriesDesc = "Spiral PTFE Heater";
+        const voltageDesc = vSelect + "V";
+        const phaseDesc = "Single Phase";
+        const wattageDesc = wSelect + "W";
+        const hotzoneDesc = hotzoneMap[wSelect] + " hotzone";
+        const oalDesc = customLength + '" OAL';
+        const conduitDesc = conduitLength + '" Teflon conduit';
+        const fuseDesc = fuseMap[fuse];
+
+        const descriptionString = `${seriesDesc}, ${voltageDesc}, ${phaseDesc}, ${wattageDesc}, ${hotzoneDesc}, ${oalDesc}, ${conduitDesc}, ${fuseDesc}`;
+
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
-        document.getElementById('out-amps').innerText = amps.toFixed(2);
+        document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        document.getElementById('out-desc').innerText = descriptionString;
         
-        // Reset Copy Button Styling
         const copyBtn = document.getElementById('copy-btn');
         copyBtn.innerText = 'Copy';
         copyBtn.classList.remove('copied');

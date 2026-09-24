@@ -20,6 +20,20 @@
         #copy-btn { margin-left: 15px; padding: 4px 12px; font-size: 14px; cursor: pointer; border: 1px solid #bdc3c7; background-color: #fff; color: #2c3e50; border-radius: 4px; transition: all 0.2s; }
         #copy-btn:hover { background-color: #ecf0f1; }
         #copy-btn.copied { background-color: #2ecc71; color: white; border-color: #27ae60; }
+
+        .description-box {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #bdc3c7;
+            font-size: 15px !important;
+            color: #2c3e50;
+            display: block !important;
+            line-height: 1.5;
+        }
+        .description-box span {
+            color: #333;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -41,12 +55,17 @@
 
     <div class="form-group">
         <label for="voltage">Voltage (V)</label>
-        <select id="voltage" onchange="updateSizes()"></select>
+        <select id="voltage" onchange="updateWidths()"></select>
     </div>
 
     <div class="form-group">
-        <label for="size">Configuration (Width x Length)</label>
-        <select id="size" onchange="calculate()"></select>
+        <label for="width">Width (inches)</label>
+        <select id="width" onchange="updateLengths()"></select>
+    </div>
+
+    <div class="form-group">
+        <label for="length">Length (inches)</label>
+        <select id="length" onchange="calculate()"></select>
     </div>
 
     <div class="form-group">
@@ -56,9 +75,6 @@
             <option value="P2">P2</option>
             <option value="P3">P3</option>
             <option value="P4">P4</option>
-            <option value="P5">P5</option>
-            <option value="P6">P6</option>
-            <option value="P7">P7</option>
             <option value="P8">P8 (+$48)</option>
         </select>
     </div>
@@ -69,9 +85,9 @@
     </div>
 
     <div class="form-group">
-        <label for="conduit">Flexible lead length</label>
+        <label for="conduit">Flexible lead length (inches)</label>
         <input type="number" id="conduit" value="48" min="1" oninput="calculate()">
-        <small style="color:#7f8c8d;">Standard 48" (4 feet). Extra lengths add $7 per inch.</small>
+
     </div>
 
     <div class="results">
@@ -82,43 +98,47 @@
         <div>Amps: <span id="out-amps" style="margin-left: 5px;"></span> A</div>
         <div>Retail Price: $<span id="out-price" style="margin-left: 5px;"></span></div>
         <div>Distributor Price: $<span id="out-dist-price" style="margin-left: 5px;"></span></div>
+        <div class="description-box">
+            <strong>Description:</strong><br>
+            <span id="out-desc"></span>
+        </div>
     </div>
 </div>
 
 <script>
-    // HXRL Series Database - Refactored to template string {v}
-    const heaters = [
-        { watts: 1000, label: 'Width 4", Length 19"', template: "HXRL1{v}04-19L-**", price: 1267, guard: 130 },
-        { watts: 1000, label: 'Width 6", Length 13"', template: "HXRL1{v}06-13L-**", price: 1267, guard: 130 },
-        { watts: 1000, label: 'Width 8", Length 10"', template: "HXRL1{v}08-10L-**", price: 1267, guard: 130 },
+    // HXRL Series Database explicitly capturing Spreadsheet mapping
+    const heaterConfigs = [
+        { watts: 1000, width: 4, length: 19, price: 1267, guard: 130 },
+        { watts: 1000, width: 6, length: 13, price: 1267, guard: 130 },
+        { watts: 1000, width: 8, length: 10, price: 1267, guard: 130 },
 
-        { watts: 2000, label: 'Width 6", Length 25"', template: "HXRL2{v}06-25L-**", price: 1720, guard: 141 },
-        { watts: 2000, label: 'Width 8", Length 19"', template: "HXRL2{v}08-19L-**", price: 1720, guard: 141 },
-        { watts: 2000, label: 'Width 10", Length 15"', template: "HXRL2{v}10-15L-**", price: 1720, guard: 141 },
-        { watts: 2000, label: 'Width 12", Length 13"', template: "HXRL2{v}12-13L-**", price: 1720, guard: 141 },
-        { watts: 2000, label: 'Width 14", Length 11"', template: "HXRL2{v}14-11L-**", price: 1720, guard: 141 },
+        { watts: 2000, width: 6, length: 25, price: 1720, guard: 141 },
+        { watts: 2000, width: 8, length: 19, price: 1720, guard: 141 },
+        { watts: 2000, width: 10, length: 15, price: 1720, guard: 141 },
+        { watts: 2000, width: 12, length: 13, price: 1720, guard: 141 },
+        { watts: 2000, width: 14, length: 11, price: 1720, guard: 141 },
 
-        { watts: 3000, label: 'Width 10", Length 23"', template: "HXRL3{v}10-23L-**", price: 2209, guard: 152 },
-        { watts: 3000, label: 'Width 12", Length 19"', template: "HXRL3{v}12-19L-**", price: 2209, guard: 152 },
-        { watts: 3000, label: 'Width 14", Length 16"', template: "HXRL3{v}14-16L-**", price: 2209, guard: 152 },
-        { watts: 3000, label: 'Width 16", Length 14"', template: "HXRL3{v}16-14L-**", price: 2209, guard: 152 },
-        { watts: 3000, label: 'Width 18", Length 13"', template: "HXRL3{v}18-13L-**", price: 2209, guard: 152 },
+        { watts: 3000, width: 10, length: 23, price: 2209, guard: 152 },
+        { watts: 3000, width: 12, length: 19, price: 2209, guard: 152 },
+        { watts: 3000, width: 14, length: 16, price: 2209, guard: 152 },
+        { watts: 3000, width: 16, length: 14, price: 2209, guard: 152 },
+        { watts: 3000, width: 18, length: 13, price: 2209, guard: 152 },
 
-        { watts: 4000, label: 'Width 12", Length 25"', template: "HXRL4{v}12-25L-**", price: 2317, guard: 162 },
-        { watts: 4000, label: 'Width 14", Length 22"', template: "HXRL4{v}14-22L-**", price: 2317, guard: 162 },
-        { watts: 4000, label: 'Width 16", Length 19"', template: "HXRL4{v}16-19L-**", price: 2317, guard: 162 },
-        { watts: 4000, label: 'Width 18", Length 17"', template: "HXRL4{v}18-17L-**", price: 2317, guard: 162 },
-        { watts: 4000, label: 'Width 20", Length 15"', template: "HXRL4{v}20-15L-**", price: 2317, guard: 162 },
+        { watts: 4000, width: 12, length: 25, price: 2317, guard: 162 },
+        { watts: 4000, width: 14, length: 22, price: 2317, guard: 162 },
+        { watts: 4000, width: 16, length: 19, price: 2317, guard: 162 },
+        { watts: 4000, width: 18, length: 17, price: 2317, guard: 162 },
+        { watts: 4000, width: 20, length: 15, price: 2317, guard: 162 },
 
-        { watts: 5000, label: 'Width 12", Length 31"', template: "HXRL5{v}12-31L-**", price: 2630, guard: 175 },
-        { watts: 5000, label: 'Width 14", Length 27"', template: "HXRL5{v}14-27L-**", price: 2630, guard: 175 },
-        { watts: 5000, label: 'Width 16", Length 23"', template: "HXRL5{v}16-23L-**", price: 2630, guard: 175 },
-        { watts: 5000, label: 'Width 18", Length 21"', template: "HXRL5{v}18-21L-**", price: 2630, guard: 175 },
+        { watts: 5000, width: 12, length: 31, price: 2630, guard: 175 },
+        { watts: 5000, width: 14, length: 27, price: 2630, guard: 175 },
+        { watts: 5000, width: 16, length: 23, price: 2630, guard: 175 },
+        { watts: 5000, width: 18, length: 21, price: 2630, guard: 175 },
 
-        { watts: 6000, label: 'Width 12", Length 36"', template: "HXRL6{v}12-36L-**", price: 2914, guard: 175 },
-        { watts: 6000, label: 'Width 14", Length 30"', template: "HXRL6{v}14-30L-**", price: 2914, guard: 175 },
-        { watts: 6000, label: 'Width 16", Length 26"', template: "HXRL6{v}16-26L-**", price: 2914, guard: 175 },
-        { watts: 6000, label: 'Width 18", Length 21"', template: "HXRL6{v}20-21L-**", price: 2914, guard: 175 },
+        { watts: 6000, width: 12, length: 36, price: 2914, guard: 175 },
+        { watts: 6000, width: 14, length: 30, price: 2914, guard: 175 },
+        { watts: 6000, width: 16, length: 26, price: 2914, guard: 175 },
+        { watts: 6000, width: 18, length: 21, price: 2914, guard: 175 },
     ];
 
     // Map of voltages to their specific part number code digits
@@ -135,12 +155,29 @@
         200: "0"
     };
 
+    // Millimeter mapping for dimension descriptions
+    const mmMap = {
+        4: "102", 6: "152", 8: "203", 10: "254", 11: "279", 12: "305", 13: "330",
+        14: "356", 15: "381", 16: "406", 17: "432", 18: "457", 19: "483", 20: "508",
+        21: "533", 22: "559", 23: "584", 25: "635", 26: "660", 27: "686", 30: "762",
+        31: "787", 36: "914"
+    };
+
+    // Fuse type mapping for description
+    const fuseMap = {
+        "P1": "P1 Replaceable Fuse (190degF)",
+        "P4": "P4 Replaceable Fuse (220degF)",
+        "P2": "P2 Resettable Fuse (190degF)",
+        "P3": "P3 Resettable Fuse (250degF)",
+        "P8": "P8 Resettable Fuse (210degF)"
+    };
+
     function updateVoltages() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = document.getElementById('voltage');
         vSelect.innerHTML = ''; 
 
-        // All desired voltages
+        // Standard voltages
         const allVoltages = [120, 200, 208, 220, 240, 380, 400, 415, 480, 600];
         
         allVoltages.forEach(v => {
@@ -154,22 +191,41 @@
             vSelect.appendChild(opt);
         });
 
-        updateSizes();
+        updateWidths();
     }
 
-    function updateSizes() {
+    function updateWidths() {
         const wSelect = parseInt(document.getElementById('wattage').value);
-        const sSelect = document.getElementById('size');
-        sSelect.innerHTML = '';
+        const widthSelect = document.getElementById('width');
+        widthSelect.innerHTML = '';
 
-        // Extract available Width x Length combinations for the chosen Wattage
-        const availableHeaters = heaters.filter(h => h.watts === wSelect);
+        // Extract available Widths for chosen Wattage
+        const availableWidths = [...new Set(heaterConfigs.filter(h => h.watts === wSelect).map(h => h.width))];
         
-        availableHeaters.forEach(h => {
+        availableWidths.sort((a, b) => a - b).forEach(w => {
             let opt = document.createElement('option');
-            opt.value = h.template;
-            opt.textContent = h.label;
-            sSelect.appendChild(opt);
+            opt.value = w;
+            opt.textContent = w + '"';
+            widthSelect.appendChild(opt);
+        });
+
+        updateLengths();
+    }
+
+    function updateLengths() {
+        const wSelect = parseInt(document.getElementById('wattage').value);
+        const widthSelect = parseInt(document.getElementById('width').value);
+        const lengthSelect = document.getElementById('length');
+        lengthSelect.innerHTML = '';
+
+        // Extract available Lengths for chosen Wattage and Width
+        const availableLengths = heaterConfigs.filter(h => h.watts === wSelect && h.width === widthSelect).map(h => h.length);
+        
+        availableLengths.sort((a, b) => a - b).forEach(l => {
+            let opt = document.createElement('option');
+            opt.value = l;
+            opt.textContent = l + '"';
+            lengthSelect.appendChild(opt);
         });
 
         calculate();
@@ -178,23 +234,25 @@
     function calculate() {
         const wSelect = parseInt(document.getElementById('wattage').value);
         const vSelect = parseInt(document.getElementById('voltage').value);
-        const selectedTemplateStr = document.getElementById('size').value;
+        const widthSelect = parseInt(document.getElementById('width').value);
+        const lengthSelect = parseInt(document.getElementById('length').value);
         const fuse = document.getElementById('fuse').value;
         const includeGuard = document.getElementById('guard').checked;
         const flexLength = parseInt(document.getElementById('conduit').value) || 48;
         
-        const heater = heaters.find(h => h.template === selectedTemplateStr);
+        const heater = heaterConfigs.find(h => h.watts === wSelect && h.width === widthSelect && h.length === lengthSelect);
         if (!heater) return;
 
         let finalPrice = heater.price;
-        let generatedPart = heater.template;
-
-        // 1. Inject Voltage Code into the Part Number
+        
+        // 1. Generate Base Part Number
+        const kw = wSelect / 1000;
         const vCode = voltageCodes[vSelect] || "1";
-        generatedPart = generatedPart.replace('{v}', vCode);
+        const paddedWidth = widthSelect < 10 ? '0' + widthSelect : widthSelect;
+        
+        let generatedPart = `HXRL${kw}${vCode}${paddedWidth}-${lengthSelect}L-${fuse}`;
 
         // Process Fuse Surcharge
-        generatedPart = generatedPart.replace('**', fuse);
         if (fuse === 'P8') {
             finalPrice += 48;
         }
@@ -216,11 +274,25 @@
 
         const distributorPrice = finalPrice * 0.65;
 
+        // Generate Description String
+        // Series, Voltage, Phase, Wattage, Width, Length, Conduit Length, Fuse type
+        const seriesDesc = "Low Profile Flex Riser PTFE Heaters";
+        const voltageDesc = vSelect + "V";
+        const phaseDesc = "Single Phase";
+        const wattageDesc = wSelect + "W";
+        const widthDesc = widthSelect + '"' + (mmMap[widthSelect] || '') + 'mm Width';
+        const lengthDesc = lengthSelect + '"' + (mmMap[lengthSelect] || '') + 'mm Length';
+        const conduitDesc = flexLength + '" Teflon conduit';
+        const fuseDesc = fuseMap[fuse];
+
+        const descriptionString = `${seriesDesc}, ${voltageDesc}, ${phaseDesc}, ${wattageDesc}, ${widthDesc}, ${lengthDesc}, ${conduitDesc}, ${fuseDesc}`;
+
         // Output Values
         document.getElementById('out-part').innerText = generatedPart;
         document.getElementById('out-amps').innerText = amps;
         document.getElementById('out-price').innerText = finalPrice.toFixed(2);
         document.getElementById('out-dist-price').innerText = distributorPrice.toFixed(2);
+        document.getElementById('out-desc').innerText = descriptionString;
         
         // Reset Copy Button Styling
         const copyBtn = document.getElementById('copy-btn');
